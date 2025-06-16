@@ -83,6 +83,7 @@ async def ingest_async(
             clone_config = query.extract_clone_config()
             if temp_clone_dir is not None:
                 clone_config.local_path = temp_clone_dir
+                query.local_path = temp_clone_dir
             clone_dir_used = clone_config.local_path
             
             clone_coroutine = clone_repo(clone_config, token=token)
