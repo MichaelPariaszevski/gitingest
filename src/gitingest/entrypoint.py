@@ -14,6 +14,7 @@ from gitingest.query_parsing import IngestionQuery, parse_query
 
 async def ingest_async(
     source: str,
+    temp_clone_dir: str = None,
     max_file_size: int = 10 * 1024 * 1024,  # 10 MB
     include_patterns: Optional[Union[str, Set[str]]] = None,
     exclude_patterns: Optional[Union[str, Set[str]]] = None,
@@ -61,6 +62,7 @@ async def ingest_async(
         If `clone_repo` does not return a coroutine, or if the `source` is of an unsupported type.
     """
     repo_cloned = False
+    clone_dir_used = None
 
     if not token:
         token = os.getenv("GITHUB_TOKEN")
@@ -79,6 +81,10 @@ async def ingest_async(
             query.branch = selected_branch
 
             clone_config = query.extract_clone_config()
+            if temp_clone_dir is not None:
+                clone_config.local_path = temp_clone_dir
+            clone_dir_used = clone_config.local_path
+            
             clone_coroutine = clone_repo(clone_config, token=token)
 
             if inspect.iscoroutine(clone_coroutine):
@@ -101,11 +107,15 @@ async def ingest_async(
     finally:
         # Clean up the temporary directory if it was created
         if repo_cloned:
-            shutil.rmtree(TMP_BASE_PATH, ignore_errors=True)
+            if clone_dir_used is not None:
+                shutil.rmtree(clone_dir_used, ignore_errors=True)
+            else:
+                shutil.rmtree(TMP_BASE_PATH, ignore_errors=True)
 
 
 def ingest(
     source: str,
+    temp_clone_dir: str = None,
     max_file_size: int = 10 * 1024 * 1024,  # 10 MB
     include_patterns: Optional[Union[str, Set[str]]] = None,
     exclude_patterns: Optional[Union[str, Set[str]]] = None,
@@ -154,6 +164,7 @@ def ingest(
     return asyncio.run(
         ingest_async(
             source=source,
+            temp_clone_dir=temp_clone_dir,
             max_file_size=max_file_size,
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
